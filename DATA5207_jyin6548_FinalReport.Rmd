@@ -1,0 +1,519 @@
+---
+title: "U.S. 2018 County-Level Health Ranking Key Predictors Research"
+author: "SID: 480538538"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r import libraries, include=FALSE}
+library(dplyr)
+library(reshape2)
+library(arm)
+library(ggplot2)
+library(tidyr)
+library(psych)
+library(glmnet)
+library(stringr)
+```
+```{r reading datasets, include=FALSE }
+
+HealthRanking.data <- read.csv("Alabama.csv")
+HealthRanking.data <- HealthRanking.data %>%
+  mutate(
+         PhysicianRatio = str_split(PCP.Ratio,':',2,simplify = T)[,1],
+         )
+alabama.data <- filter(HealthRanking.data, State == "Alabama")
+# head(alabama.data)
+names(alabama.data)
+virginia.data <- filter(HealthRanking.data, State == "Virginia")
+washington.data <- filter(HealthRanking.data, State == "Washington")
+
+```
+```{r ceate functions, echo=FALSE}
+
+Recode_to_Scale <- function(my_var) {
+scale(as.numeric(as.character(my_var)))
+}
+
+```
+
+# Introduction 
+
+This research is trying to answer what determinants decide the better health outcomes at the county level in the United States. With the availability of a wide range of data that present the local residents’ dynamic living aspects such as physical, mental, and social lifestyles, the measuring of population’s health outcomes become pragmatic and meaningful (Parrish, R.G., 2010). The quality of health status at the county level in the US is no longer represented solely by medical indicators. Introducing more factors to measure the health system in local areas now is significantly helpful for local NGOs and policymakers (Jones, E. et al., 2006.).
+
+My hypothesis is that the predictors for positive health outcomes can be categorized into two main categories as medical factors and social lifestyle factors. In medical factors such as clinical care, primary care, and dentists indicate the medical service level in each county, which has a direct impact on health outcomes. In social lifestyle factors such as social associations, excessive drinking, and house conditions are indirectly influencing the local health ranking. And this research is focusing on how these predictors work differently in different development states in the US. The counties’ health ranking data in three states, Alabama, Virginia, and Washington are collected and analyzed. The predictors are weighted differently in these three states, therefore, more specific analysis and suggestions can be provided for the specific states’ policymakers.
+
+\vspace{6mm}
+
+# Literature and theory
+
+Intuitively, medical care is the focal point of our health outcome model. The National Center for Health Services Research established a systematic framework for assessing the continuing health outcomes given the use of health services and the resources required (Brook, R.H. et al., 1977). However, public health is considered as a complex concept that indicates citizens’ life quality rather than the simple absence of illness. The strong correlations between health status and socio-economic factors are proven in the previous study (Kosteniuk, J.G. and Dickinson, H.D., 2003). On top of that, these socio-economic factors often influence lifestyle factors such as food choice (Ahern, M., Brown, C. and Dukas, S., 2011) and smoking severity (Ross, C.E., 2000), which gives rise to different health outcomes. In this digital age, social research data can be mainly categorized as two styles, readymades, and custommade (Salganik, M., 2019). The  “Wisconsin County Health Rankings” serves as my readymades dataset and I customized it according to my theory requirements.
+
+Therefore, my theory is, by utilizing the health ranking data, the ecological health ranking can be predicted with the local medical features and citizens’ social lifestyle features. In my explanatory model, the correlations between county-level ranking and features will be visualized and analyzed. For instance, the better medical facilities a region has the more likely the health ranking it will get, the less excessive drinking recorded the better the health status for the locals. On top of that, the correlation between these features is also analyzed, for example, the more social associations a county has, the less the mental health issues of the citizens. 
+
+More importantly, my target states, Alabama, Virginia, and Washington are ranked as 49, 18 and 1 in “Best States Ranking 2019” (U.S.News) to represent the states’ development spectrum. The predictors have different weights in these three states’ models, therefore, indicating the different impacts on the county level’s health outcomes in different ecological areas. The comparison of these three states will provide more specific and realistic suggestions for better health outcomes in each state. At the same time, some predictors such as physicians’ ratio and mental help providers have interpretable correlations in a certain state’s health outcomes while indicating the weak connection in other states.
+
+
+\vspace{6mm}
+
+# Data and methodology 
+
+In 2004, the University of Wisconsin Population Health Institute first released the “Wisconsin County Health Rankings” based on the United Health Foundation’s model, which receives wide public attention and promotes health issues awareness (Peppard, P.E. et al., 2008). The ranking not only encourages a wide appreciation of the variety in determinants that pose impacts on population health but also highlights the factors that can be enhanced or limited by the policymakers and regional programs in terms of better county-level health outcomes. The major data source for this research was announced in 2018 and was a collaboration between the Robert Wood Johnson Foundation and the University of Wisconsin Population Health Insititute, called “2018 County Health Ranking Data”. The data set consists of more than twenty predictors/variables for health ranking, varying from sectors’ medical facilities assessment to citizens’ personal lifestyle. All outcomes and factors rankings are calculated and reported within states. Table 1 demonstrates the features’ definition is selected for this research.
+![variables table](variables_table.png)
+
+The main evaluation method is using linear regression to build a machine model in R to predict health ranking outcomes for counties, given the ranking outcomes are continuous values. Instead of emphasizing the accuracy of model predictions, analyzing the correlations between features and the outcomes are the main purpose of fitting the models. Given the aggregated data for the complex social issues, the utilization of simple linear regression modern treatment has been prevalent among social science researchers due to its interpretation abilities (Fox, J., 1997). Therefore, in this research, the following formula is the model for the county-level health ranking predictions:
+H = a + Mß + e
+where H is the prediction of health outcomes given ‘M’ a set of features/determinants from each sate, ‘a’ is the intercept of the model, ‘ß’  is the coefficients on ‘M’, and e is the regression disturbance for the linear model.
+
+While selecting features for medical factors and social lifestyle factors, Factor Analysis methodology is implemented for these two latent variables. After calculation between F and Y weighted, the optimal weights indicate the relationships between features and latent variables. Therefore, the features I selected for this research are validated for the two categories.
+```{r latent variables analysis, include=FALSE}
+
+alabama.data$Preventable.Hos.Stay <- Recode_to_Scale(alabama.data$Preventable.Hos.Stay)
+
+alabama.medi.fa.fit <- fa(alabama.data[,c("Primary.Care.Physicians",
+"Mental.Health.Providers",
+"Dentists",
+"Preventable.Hos.Stay"
+)],
+nfactors=1)
+
+alabama.life.fa.fit <- fa(alabama.data[,c("Smokers",
+"Excessive.Drinking",
+"Associations",
+"Workers.who.Drive.Alone",
+"Access.to..exercise.opportunity",
+"Physically.Inactive",
+"Severe.Housing.Problems" 
+)],
+nfactors=1)
+
+
+
+alabama.medi.fa.fit
+alabama.life.fa.fit 
+```
+
+![Latent variables for medical quality](medical_quality_latent_variables.png)
+
+![Latent variables for non-medical quality](non-medical_quality_latent_variable.png)
+
+And for these selected features, “Lasso” regularization was implemented for each state’s linear model in order to filter out the features that have a limited impact on health rankings by shrinking individual coefficients to zero. As the regularization outputs, features 'DentistAvailability', 'AccessToExercise', and  'AirPollutionLevel' are suggested to be filtered out for the Alabama model, features 'PhysicianAvailability', 'MentalHelpProvider', 'HousingIssue', 'DentistAvailability', 'PreventableHosStay', 'AccessToExercise', etc are filtered in the Virginia model, whereas 'MentalHelpProvider', 'PreventableHosStay', and 'ObeseNumber''s coefficiency is ultimately shrunk in the Washington model.
+
+```{r alabama data cleaning and regularization , include=FALSE}
+alabama.data$Physicians <- Recode_to_Scale(alabama.data$Primary.Care.Physicians)
+alabama.data$PhysicalUnhealthy <- Recode_to_Scale(alabama.data$Physically.Unhealthy.Days)
+alabama.data$MentalUnhealthy <- Recode_to_Scale(alabama.data$Mentally.Unhealthy.Days)
+alabama.data$MentalHelp <- Recode_to_Scale(alabama.data$Mental.Health.Providers)
+alabama.data$DentistsAvailability <- Recode_to_Scale(alabama.data$Dentists)
+alabama.data$PreventableHosStay <- Recode_to_Scale(alabama.data$Preventable.Hos.Stay)
+
+alabama.data$SmokerNumber <- Recode_to_Scale(alabama.data$Smokers)
+alabama.data$ObeseNumber <- Recode_to_Scale(alabama.data$Obese)
+alabama.data$PhysicalInactive <- Recode_to_Scale(alabama.data$Physically.Inactive)
+alabama.data$AccessToExercise <- Recode_to_Scale(alabama.data$Access.to..exercise.opportunity)
+alabama.data$ExcessiveDrinking <- Recode_to_Scale(alabama.data$Excessive.Drinking)
+alabama.data$AssociationNumber <- Recode_to_Scale(alabama.data$Associations)
+alabama.data$AirPollutionLevel <- Recode_to_Scale(alabama.data$Average.Daily.PM2.5)
+alabama.data$DriveAloneNumber <- Recode_to_Scale(alabama.data$Workers.who.Drive.Alone)
+alabama.data$DiabeticNumber <- Recode_to_Scale(alabama.data$Diabetics)
+
+alabama.data$HousingIssue <- Recode_to_Scale(alabama.data$Severe.Housing.Problems)
+
+
+  # drops all rows with missing data
+alabama.data <- alabama.data %>%
+  drop_na()
+
+x = as.matrix(alabama.data[, c("Physicians",
+                          "PhysicalUnhealthy",
+                          "MentalUnhealthy",
+                          "MentalHelp",
+                          "HousingIssue",
+                          "DentistsAvailability",
+                          "PreventableHosStay",
+                          "SmokerNumber",
+                          "ObeseNumber",
+                          "PhysicalInactive",
+                          "AccessToExercise",
+                          "ExcessiveDrinking",
+                          "AssociationNumber",
+                          "AirPollutionLevel",
+                          "DriveAloneNumber",
+                          "DiabeticNumber"
+                          )])
+y = alabama.data$Rank
+
+fit <- glmnet(x,y)
+
+print(fit)
+
+plot(fit)
+
+cvfit <- cv.glmnet(x,y)
+
+
+coef(cvfit, s ='lambda.min')
+
+
+```
+
+!["Lasso" Regularization for Alabama state's features](alabama_Lasso_regularization.png)
+
+```{r lasso coefficiency regularization for Virginia state, include = FALSE}
+
+virginia.data$Physicians <- Recode_to_Scale(virginia.data$Primary.Care.Physicians)
+virginia.data$PhysicalUnhealthy <- Recode_to_Scale(virginia.data$Physically.Unhealthy.Days)
+virginia.data$MentalUnhealthy <- Recode_to_Scale(virginia.data$Mentally.Unhealthy.Days)
+virginia.data$MentalHelp <- Recode_to_Scale(virginia.data$Mental.Health.Providers)
+virginia.data$DentistsAvailability <- Recode_to_Scale(virginia.data$Dentists)
+virginia.data$PreventableHosStay <- Recode_to_Scale(virginia.data$Preventable.Hos.Stay)
+
+virginia.data$SmokerNumber <- Recode_to_Scale(virginia.data$Smokers)
+virginia.data$ObeseNumber <- Recode_to_Scale(virginia.data$Obese)
+virginia.data$PhysicalInactive <- Recode_to_Scale(virginia.data$Physically.Inactive)
+virginia.data$AccessToExercise <- Recode_to_Scale(virginia.data$Access.to..exercise.opportunity)
+virginia.data$ExcessiveDrinking <- Recode_to_Scale(virginia.data$Excessive.Drinking)
+virginia.data$AssociationNumber <- Recode_to_Scale(virginia.data$Associations)
+virginia.data$AirPollutionLevel <- Recode_to_Scale(virginia.data$Average.Daily.PM2.5)
+virginia.data$DriveAloneNumber <- Recode_to_Scale(virginia.data$Workers.who.Drive.Alone)
+virginia.data$DiabeticNumber <- Recode_to_Scale(virginia.data$Diabetics)
+
+virginia.data$HousingIssue <- Recode_to_Scale(virginia.data$Severe.Housing.Problems)
+
+
+  # drops all rows with missing data
+virginia.data <- virginia.data %>%
+  drop_na()
+x = as.matrix(virginia.data[, c("Physicians",
+                          "PhysicalUnhealthy",
+                          "MentalUnhealthy",
+                          "MentalHelp",
+                          "HousingIssue",
+                          "DentistsAvailability",
+                          "PreventableHosStay",
+                          "SmokerNumber",
+                          "ObeseNumber",
+                          "PhysicalInactive",
+                          "AccessToExercise",
+                          "ExcessiveDrinking",
+                          "AssociationNumber",
+                          "AirPollutionLevel",
+                          "DriveAloneNumber",
+                          "DiabeticNumber"
+                          )])
+y = virginia.data$Rank
+
+fit <- glmnet(x,y)
+
+print(fit)
+
+plot(fit)
+
+cvfit <- cv.glmnet(x,y)
+
+
+coef(cvfit, s ='lambda.min')
+```
+!["Lasso" Regularization for Virginia state's features](virginia lasso regularization.png)
+
+```{r lasso coefficiency regression for Washington state, include=FALSE}
+washington.data$Physicians <- Recode_to_Scale(washington.data$Primary.Care.Physicians)
+washington.data$PhysicalUnhealthy <- Recode_to_Scale(washington.data$Physically.Unhealthy.Days)
+washington.data$MentalUnhealthy <- Recode_to_Scale(washington.data$Mentally.Unhealthy.Days)
+washington.data$MentalHelp <- Recode_to_Scale(washington.data$Mental.Health.Providers)
+washington.data$DentistsAvailability <- Recode_to_Scale(washington.data$Dentists)
+washington.data$PreventableHosStay <- Recode_to_Scale(washington.data$Preventable.Hos.Stay)
+
+washington.data$SmokerNumber <- Recode_to_Scale(washington.data$Smokers)
+washington.data$ObeseNumber <- Recode_to_Scale(washington.data$Obese)
+washington.data$PhysicalInactive <- Recode_to_Scale(washington.data$Physically.Inactive)
+washington.data$AccessToExercise <- Recode_to_Scale(washington.data$Access.to..exercise.opportunity)
+washington.data$ExcessiveDrinking <- Recode_to_Scale(washington.data$Excessive.Drinking)
+washington.data$AssociationNumber <- Recode_to_Scale(washington.data$Associations)
+washington.data$AirPollutionLevel <- Recode_to_Scale(washington.data$Average.Daily.PM2.5)
+washington.data$DriveAloneNumber <- Recode_to_Scale(washington.data$Workers.who.Drive.Alone)
+washington.data$DiabeticNumber <- Recode_to_Scale(washington.data$Diabetics)
+
+washington.data$HousingIssue <- Recode_to_Scale(washington.data$Severe.Housing.Problems)
+
+
+  # drops all rows with missing data
+washington.data <- washington.data %>%
+  drop_na()
+x = as.matrix(washington.data[, c("Physicians",
+                          "PhysicalUnhealthy",
+                          "MentalUnhealthy",
+                          "MentalHelp",
+                          "HousingIssue",
+                          "DentistsAvailability",
+                          "PreventableHosStay",
+                          "SmokerNumber",
+                          "ObeseNumber",
+                          "PhysicalInactive",
+                          "AccessToExercise",
+                          "ExcessiveDrinking",
+                          "AssociationNumber",
+                          "AirPollutionLevel",
+                          "DriveAloneNumber",
+                          "DiabeticNumber"
+                          )])
+y = washington.data$Rank
+
+fit <- glmnet(x,y)
+
+print(fit)
+
+plot(fit)
+
+cvfit <- cv.glmnet(x,y)
+
+
+coef(cvfit, s ='lambda.min')
+```
+
+!["Lasso" Regularization for Washington state's features](washington_lasso_regularization.png)
+
+Limitation: However, the regression results can be used to access the relative contribution between various factors and the health ranking are simple and straight forward. The interpretation of data merely based on the parameters of the fitted models, therefore, the inter-dependency of factors and rankings are easy to be neglected. In this research, the plots for different  factors are generated to compensate for this disadvantage.
+
+\vspace{6mm}
+
+# Results and implications
+
+According to the previous factor analysis and ‘Lasso’ regularization results, the three models for three states are fitted with different features. The following sections will analyze each county-level health ranking model separately.
+
+## Result for Alabama model
+
+```{r fit linear models for Alabama state,echo=FALSE, message=FALSE,warning=FALSE}
+
+alabama.model<- lm(Rank ~ Physicians + 
+                     PhysicalUnhealthy + 
+                     MentalUnhealthy + 
+                     MentalHelp + 
+                     HousingIssue + 
+                     PreventableHosStay + 
+                     SmokerNumber+ 
+                     ObeseNumber + 
+                     PhysicalInactive + 
+                     #ExcessiveDrinking + 
+                     # AccessToExercise +
+                     AssociationNumber + 
+                     DriveAloneNumber + 
+                     DiabeticNumber,
+                   
+                    data = alabama.data)
+
+display(alabama.model)
+
+```
+As the model information above,  this model contains 12 predictors. The intercept with coefficiency estimate 34 means the benchmark for a county in Alabama state is to be ranked as 34 for health outcomes.  The negative ‘coef.est’ indicates with one unit more value in this feature, the rank number will be less, which indicates a better health outcome for the county.
+
+In this model, only two features have negative coefficiency, in other words, only two predictors for Alabama county-level health ranking have a positive impact. The factor ‘Physicians’ represent the population to primary care physicians ratio, ‘SmokerNumber’ represents the percentage of smokers in the population. It means while one physician is responsible for more citizens and more smokers a county has, the better the health ranking. This counterintuitive result from the model lacks confidence since the standard errors are too big for the coefficiency. Therefore, further analysis of these two factors is necessary. 
+
+Factors ‘Physical Unhealthy Days’, ‘Mental Unhealthy Days’, ‘Housing Issues’, and ‘Physical Inactive’ share strong correlations with the ranking prediction. Generally, the more existence of these issues, the worse the rank will be for the given county in Alabama. 
+
+## Result for Virginia Model
+
+```{r fit linear models for Virginia state,echo=FALSE, message=FALSE,warning=FALSE}
+
+Virginia.model<- lm(Rank ~ 
+                     #Physicians + 
+                     PhysicalUnhealthy + 
+                     MentalUnhealthy + 
+                     #MentalHelp + 
+                     #HousingIssue + 
+                     #PreventableHosStay + 
+                     SmokerNumber+ 
+                     ObeseNumber + 
+                     PhysicalInactive  
+                     #ExcessiveDrinking + 
+                     #AccessToExercise +
+                     #AssociationNumber + 
+                     #DriveAloneNumber  
+                     #DiabeticNumber, 
+                    ,
+                   data = virginia.data)
+
+display(Virginia.model)
+
+```
+As a consequence of the ‘Lasso’ regularization, this linear model for Virginia counties has only five factors. All factors in this model demonstrate a strong correlation with health outcomes. It worth mentioning that the percentages of smokers and obese people in Virginia counties serve as key predictors for the health ranking. The local county policymakers are suggested to focus on addressing these two health issues if they are expecting a better health ranking in the future.
+
+## Result for Washington Model
+
+```{r fit linear models for Washington state,echo=FALSE, message=FALSE,warning=FALSE}
+
+washington.model<- lm(Rank ~ Physicians + 
+                     PhysicalUnhealthy + 
+                     MentalUnhealthy + 
+                     #MentalHelp + 
+                     HousingIssue + 
+                       DentistsAvailability +
+                     #PreventableHosStay + 
+                     SmokerNumber+ 
+                     #ObeseNumber + 
+                     PhysicalInactive + 
+                     AirPollutionLevel + 
+                     AccessToExercise +
+                     AssociationNumber + 
+                     DriveAloneNumber + 
+                     DiabeticNumber,
+                   
+                    data = washington.data)
+
+display(washington.model)
+
+```
+The model of Washington county health rank has 12 factors. In this model, more availability of dentists brings a noticeable positive influence on health ranking. And the more accessible exercise opportunities are improving the health outcomes of counties. The more percentage of smokers correctly causes a poorer ranking result. However, an interesting predictor ‘Air Pollution Level’ shows that the worse PM2.5 for the county’s air quality, the better the ranking of health.  This factor needs to be looked into more in the following research. In order to improve county’s health outcomes in Washington state, the local governments can allocate more resources to dental service, exercise facilities. Meanwhile, the hazardous of physical inactivity and smoking should be emphasized for the public to avoid a poorer health rank.
+
+## Corss-State Factors Comparison
+
+```{r plot physicians,echo=FALSE, message=FALSE,warning=FALSE}
+ggplot(HealthRanking.data,aes(x=Primary.Care.Physicians, y = Rank))+
+  geom_jitter(size = 0.6, alpha = .3, width = .01,height = .5)+
+  stat_smooth(se =F, fullrange = T)+
+  labs(title = 'Rank Trend with Population to Physician Ratio',
+       x = 'Physician Ratio Quartile',
+       y = 'Rank')+
+  scale_x_continuous(labels =)+ theme_minimal()+
+  facet_wrap(~ State)
+
+ggplot(HealthRanking.data,aes(x=Mental.Health.Providers, y = Rank))+
+  geom_jitter(size = 0.6, alpha = .3, width = .01,height = .5)+
+  stat_smooth(se =F, fullrange = T)+
+  labs(title = 'Rank Trend with Mental Help Provider Ratio',
+       x = 'Mental Provider Ratio Quartile',
+       y = 'Rank')+
+  scale_x_continuous(labels =)+ theme_minimal()+
+  facet_wrap(~ State)
+```
+As the plotted rank trend with population to physician ratio,  we notice that in Virginia more work burden for primary physical providers leads to a greater number of rank. Counties of Washington show an insensitivity to this ratio. Intriguingly, the rank is the worst at ratio quartile 3 and is optimal at both quartiles 1 and 4. The rank trend with population to mental help provider ratio is somehow lack of interpretability. 
+
+```{r plot physical unhealthy days,echo=FALSE, message=FALSE,warning=FALSE}
+ggplot(HealthRanking.data,aes(x=Physically.Unhealthy.Days, y = Rank))+
+  geom_jitter(size = 0.6, alpha = .3, width = .01,height = .5)+
+  stat_smooth(se =F, fullrange = T)+
+  labs(title = 'Rank Trend with Physical Unhealthy Days',
+       x = 'Physician Ratio Quartile',
+       y = 'Rank')+
+  scale_x_continuous(labels =)+ theme_minimal()+
+  facet_wrap(~ State)
+
+ggplot(HealthRanking.data,aes(x=Mentally.Unhealthy.Days, y = Rank))+
+  geom_jitter(size = 0.6, alpha = .3, width = .01,height = .5)+
+  stat_smooth(se =F, fullrange = T)+
+  labs(title = 'Rank Trend with Average Mental Unhealthy Days',
+       x = 'Average Mental Unhealthy Days',
+       y = 'Rank')+
+  scale_x_continuous(labels =)+ theme_minimal()+
+  facet_wrap(~ State)
+
+```
+The two groups of charters indicate the rank trend with physical and mental unhealthy average days in counties. Intuitively, all counties in these three states show positive relationships between rank numbers and average unhealthy days.
+
+```{r plot smokers and air quality,echo=FALSE, message=FALSE,warning=FALSE}
+ggplot(HealthRanking.data,aes(x=Smokers, y = Rank))+
+  geom_jitter(size = 0.6, alpha = .3, width = .01,height = .5)+
+  stat_smooth(se =F, fullrange = T)+
+  labs(title = 'Rank Trend with Smokers',
+       x = 'Average Preventable.Hos.Stay',
+       y = 'Rank')+
+  scale_x_continuous(labels =)+ theme_minimal()+
+  facet_wrap(~ State)
+ggplot(HealthRanking.data,aes(x=Average.Daily.PM2.5, y = Rank))+
+  geom_jitter(size = 0.6, alpha = .3, width = .01,height = .5)+
+  stat_smooth(se =F, fullrange = T)+
+  labs(title = 'Rank Trend with Average.Daily.PM2.5',
+       x = 'Average Average.Daily.PM2.5',
+       y = 'Rank')+
+  scale_x_continuous(labels =)+ theme_minimal()+
+  facet_wrap(~ State)
+```
+
+According to the rank trend with smokers charter, the counterintuitive finding in Alabama’s linear regression model is proven unrealistic. As we can see in these graphs, all three states’ counties will have worse health ranking with an increasing percentage of smokers. However, when it comes to rank trend with average daily PM2.5, the message that the greater amount of fine particulate matter in micrograms per cubic meter in a county, a better health ranking it can receive. The cause of this scenario could be a more developed county usually has a severer air pollution situations.
+
+```{r plot exercise and accessibility,echo=FALSE, message=FALSE,warning=FALSE}
+ggplot(HealthRanking.data,aes(x=Physically.Inactive, y = Rank))+
+  geom_jitter(size = 0.6, alpha = .3, width = .01,height = .5)+
+  stat_smooth(se =F, fullrange = T)+
+  labs(title = 'Rank Trend with Physically.Inactive',
+       x = 'Average Physically.Inactive',
+       y = 'Rank')+
+  scale_x_continuous(labels =)+ theme_minimal()+
+  facet_wrap(~ State)
+
+
+ggplot(HealthRanking.data,aes(x=Access.to..exercise.opportunity, y = Rank))+
+  geom_jitter(size = 0.6, alpha = .3, width = .01,height = .5)+
+  stat_smooth(se =F, fullrange = T)+
+  labs(title = 'Rank Trend with Access.to..exercise.opportunity',
+       x = 'Average Access.to..exercise.opportunity',
+       y = 'Rank')+
+  scale_x_continuous(labels =)+ theme_minimal()+
+  facet_wrap(~ State)
+```
+
+The first graph above indicates that more percentage of adults have no lesure-time physical activity the worse rank a county will have. As shown in the second graph, a pragmatic approach to counterplay physical inactivity is to provide more access to workout opportunities for county residents.
+
+\vspace{6mm}
+
+# Conclusion
+
+By choosing three states with different levels of development, the different factors from the County-level Health Ranking dataset play as the key predictors in different states.
+
+In Alabama state:
+Key medical predictors: Physician availability, physical and mentally unhealthy days, preventable hospital stays. The more physicians and preventable hospital stays lead to better health outcomes in Alabama state. And the mental health issues should be addressed for a better health ranking.
+Key non-medical predictors: Lifestyle factors like smoking and physical inactivity are indicative of the county’s ranking number.
+
+In Virginia state:
+Key medical predictors:  physical and mentally unhealthy days are the essential predictors for the ranking results. Focusing on these two aspects can effectively improve a county’s health outcomes.
+Key non-medical predictors: including smokers, obese adults, and physically inactive adults. Introducing more policies to reduce these percentages will significantly benefit a county’s health outcomes in Virginia state.
+
+In Washington state:
+Key medical predictors: In this state, the dentist’s availability plays an important role. Implying that the more dentist service a county has, a better health ranking within the Washington state.
+Key non-medical predictors: In the live-environment aspect, the air pollution factor is counterintuitively correlated with health outcomes. Similar to the Virginia state, the smoking issues and physical inactivity need to be coped with. And at the same time, local government should make exercise opportunities more accessible.
+
+To conclude, this research proves that in county-level health ranking for the US, the medical and lifestyle factors are both valued. However, these factors’ influences are different in different states. Therefore, the policymakers should look into the analysis model customized for each state then make decisions base on that. 
+
+
+\vspace{6mm}
+
+
+# Bibliography 
+
+## Reference
+
+Ahern, M., Brown, C. and Dukas, S., 2011. A national study of the association between food environments and county‐level health outcomes. The Journal of Rural Health, 27(4), pp.367-379.
+
+Brook, R.H., Davies-Avery, A., Greenfield, S., Harris, L.J., Lelah, T., Solomon, N.E. and Ware, J.E., 1977. Assessing the quality of medical care using outcome measures: an overview of the method. Medical Care, 15(9), pp.i-165.
+
+Fox, J., 1997. Applied regression analysis, linear models, and related methods. Sage Publications, Inc.
+
+Jones, E., Kreuter, M., Pritchett, S., Matulionis, R.M. and Hann, N., 2006. State health policy makers: what’s the message and who’s listening?. Health Promotion Practice, 7(3), pp.280-286.
+
+Kosteniuk, J.G. and Dickinson, H.D., 2003. Tracing the social gradient in the health of Canadians: primary and secondary determinants. Social science & medicine, 57(2), pp.263-276.
+
+Parrish, R.G., 2010. Peer reviewed: Measuring population health outcomes. Preventing chronic disease, 7(4).
+
+Peppard, P.E., Kindig, D.A., Dranger, E., Jovaag, A. and Remington, P.L., 2008. Ranking community health status to stimulate discussion of local public health issues: the Wisconsin County Health Rankings. American Journal of Public Health, 98(2), pp.209-212.
+
+Ross, C.E., 2000. Walking, exercising, and smoking: does neighborhood matter?. Social science & medicine, 51(2), pp.265-274.
+
+U.S.News, Best States Ranking, viewed 14 Dec 2019,<https://www.usnews.com/news/best-states/rankings>
+
+Salganik, M., 2019. Bit by bit: Social research in the digital age. Princeton University Press.
+
+
+## Data
+
+2018 County Health Rankings Data is a  collaboration between the Robert Wood Johnson Foundation and the University of Wisconsin Population Health Institute. This dataset contains the rankings and data details for the measures used in the 2018 County Health Rankings. Containing: 
+1) Outcomes and Factors Rankings--Ranks are all calculated and reported WITHIN states
+2) Outcomes and Factors SubRankings--Ranks are all calculated and reported WITHIN states
+3) Ranked Measure Data--The measures themselves are listed in bold. 
+4) Ranked Measure Sources & Years
+5) Additional Measure Data--These are supplemental measures reported on the Rankings web site but not used in calculating the rankings.
+6) Additional Measure Sources & Years
